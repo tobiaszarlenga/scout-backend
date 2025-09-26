@@ -17,4 +17,8 @@ app.get('/api/equipos', (_req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+app.get('/', (_req, res) => {
+  res.send('Backend funcionando en el puerto 3001 🚀');
+});
+
 app.listen(PORT, () => console.log(`API lista en http://localhost:${PORT}`));
