@@ -1,0 +1,27 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- CreateTable
+CREATE TABLE [dbo].[Equipo] (
+    [id] INT NOT NULL IDENTITY(1,1),
+    [nombre] NVARCHAR(100) NOT NULL,
+    [ciudad] NVARCHAR(100),
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [Equipo_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [updated_at] DATETIME2 NOT NULL,
+    CONSTRAINT [Equipo_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [Equipo_nombre_key] UNIQUE NONCLUSTERED ([nombre])
+);
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH
