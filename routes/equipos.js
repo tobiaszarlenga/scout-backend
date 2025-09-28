@@ -38,5 +38,71 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ error: 'Error creando equipo' });
   }
 });
+router.put('/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { nombre, ciudad } = req.body;
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+    if (nombre && nombre.trim().length < 2) {
+      return res.status(400).json({ error: 'nombre debe tener al menos 2 caracteres' });
+    }
+
+    const actualizado = await prisma.equipo.update({
+      where: { id },
+      data: {
+        ...(nombre !== undefined ? { nombre: nombre.trim() } : {}),
+        ...(ciudad !== undefined ? { ciudad: ciudad?.trim() || null } : {}),
+      },
+    });
+
+    return res.json(actualizado);
+  } catch (err) {
+    if (err.code === 'P2002') {    // unique constraint
+      return res.status(409).json({ error: 'El nombre ya existe' });
+    }
+    if (err.code === 'P2025') {    // record not found
+      return res.status(404).json({ error: 'Equipo no encontrado' });
+    }
+    console.error(err);
+    return res.status(500).json({ error: 'Error actualizando equipo' });
+  }
+});
+// GET /api/equipos/:id
+router.get('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'id inválido' });
+  }
+  try {
+    const equipo = await prisma.equipo.findUnique({ where: { id } });
+    if (!equipo) return res.status(404).json({ error: 'Equipo no encontrado' });
+    res.json(equipo);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error obteniendo equipo' });
+  }
+});
+
+// DELETE /api/equipos/:id
+router.delete('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'id inválido' });
+  }
+  try {
+    await prisma.equipo.delete({ where: { id } });
+    return res.status(204).send(); // sin body
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'Equipo no encontrado' });
+    }
+    console.error(err);
+    return res.status(500).json({ error: 'Error eliminando equipo' });
+  }
+});
+
 
 module.exports = router;
