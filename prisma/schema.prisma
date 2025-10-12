@@ -6,6 +6,15 @@ datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique @db.NVarChar(255)
+  password  String   @db.NVarChar(255) // guardamos el hash
+  name      String?  @db.NVarChar(255)
+  role      String   @default("coach") @db.NVarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  }
 
 model Equipo {
   id            Int      @id @default(autoincrement())
