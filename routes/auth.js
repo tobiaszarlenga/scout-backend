@@ -46,16 +46,27 @@ router.post('/register', async (req, res) => {
 });
 
 // ✅ Login
+// routes/auth.js
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'email y password son requeridos' });
 
+    // --- AÑADE ESTOS "ESPÍAS" ---
+    console.log('--- INTENTO DE LOGIN ---');
+    console.log('Email recibido del frontend:', email); 
+
     const user = await prisma.user.findUnique({ where: { email } });
+
+    console.log('Resultado de la búsqueda en la BD:', user);
+    // --- FIN DE LOS "ESPÍAS" ---
+
     if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    const ok = await argon2.verify(user.password, password);
-    if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
+    // Por ahora, mantén comentadas estas líneas
+    // const ok = await argon2.verify(user.password, password);
+    // if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
 
     const token = signToken({ sub: user.id, email: user.email, role: user.role });
     res.cookie(COOKIE_NAME, token, cookieOptions);
