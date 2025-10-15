@@ -6,22 +6,30 @@ datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
+
 model User {
   id        Int      @id @default(autoincrement())
-  email     String   @unique @db.NVarChar(255)
-  password  String   @db.NVarChar(255) // guardamos el hash
-  name      String?  @db.NVarChar(255)
-  role      String   @default("coach") @db.NVarChar(50)
+  email     String   @unique
+  password  String
+  name      String
+  rol       String   @default("USER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  }
+
+  // --- La relación completa ---
+  equipos   Equipo[]
+}
 
 model Equipo {
-  id            Int      @id @default(autoincrement())
-  nombre        String   @db.NVarChar(100)
-  ciudad        String?  @db.NVarChar(100)
-  creadoEn      DateTime @default(now())      @map("created_at")
-  actualizadoEn DateTime @updatedAt           @map("updated_at")
+  id            Int       @id @default(autoincrement())
+  nombre        String
+  ciudad        String?
+  creadoEn      DateTime  @default(now()) @map("created_at")
+  actualizadoEn DateTime  @updatedAt @map("updated_at")
+
+  // --- La relación completa ---
+  autorId Int
+  autor   User @relation(fields: [autorId], references: [id])
 
   @@unique([nombre])
 }
