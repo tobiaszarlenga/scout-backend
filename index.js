@@ -1,37 +1,39 @@
+// scout-backend/index.js
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
-const prisma = require('./db/prisma');
-const equiposRouter = require('./routes/equipos');
-const authRouter = require('./routes/auth'); // <- NUEVO
-
 const app = express();
+const PORT = process.env.PORT || 3001;
 
-// --- Middlewares base ---
+// --- ¡CONFIGURACIÓN DE CORS DEFINITIVA! ---
+// Creamos un objeto con las opciones explícitas.
+const corsOptions = {
+  // 1. Origen permitido: Solo tu frontend puede hacer peticiones.
+  origin: ['http://localhost:3000', 'http://localhost:3002'],
+
+  // 2. Credenciales: ¡Esta es la clave! Permite que el navegador envíe cookies.
+  credentials: true,
+
+  // 3. Métodos permitidos (buena práctica incluirlos)
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+};
+
+// --- Middlewares ---
+app.use(cors(corsOptions)); // 👈 Usamos la nueva configuración aquí
 app.use(express.json());
 app.use(cookieParser());
 
-// CORS: permitir cookies desde el frontend
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true,
-}));
+// --- RUTAS ---
+const authRoutes = require('./routes/auth');
+const equiposRoutes = require('./routes/equipos');
 
-// --- Health ---
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'scout-backend', ts: new Date().toISOString() });
+app.use('/api/auth', authRoutes);
+app.use('/api/equipos', equiposRoutes);
+
+// --- Iniciar el servidor ---
+app.listen(PORT, () => {
+  console.log(`API escuchando en http://localhost:${PORT}`);
 });
-
-// --- Rutas de negocio ---
-app.use('/api/equipos', equiposRouter);
-
-// (IMPORTANTE) Eliminamos este handler duplicado para no chocar con equiposRouter
-// app.get('/api/equipos', async (_req, res) => { ... })
-
-// --- Auth (nuevo) ---
-app.use('/auth', authRouter); // /auth/register, /auth/login, /auth/me, /auth/logout
-
-const PORT = Number(process.env.PORT || 4000);
-app.listen(PORT, () => console.log(`API escuchando en http://localhost:${PORT}`));
