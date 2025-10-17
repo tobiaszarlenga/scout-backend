@@ -29,9 +29,11 @@ app.use(cookieParser());
 // --- RUTAS ---
 const authRoutes = require('./routes/auth');
 const equiposRoutes = require('./routes/equipos');
+const pitchersRoutes = require('./routes/pitchers.js');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/equipos', equiposRoutes);
+app.use('/api/pitchers', pitchersRoutes);
 
 // --- Iniciar el servidor ---
 app.listen(PORT, () => {
