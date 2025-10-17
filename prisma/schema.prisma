@@ -21,34 +21,102 @@ model User {
 }
 
 model Equipo {
-  id             Int      @id @default(autoincrement())
-  nombre         String   @unique
-  ciudad         String?
-  creadoEn       DateTime @default(now()) @map("created_at")
-  actualizadoEn  DateTime @updatedAt @map("updated_at")
+  id                 Int       @id @default(autoincrement())
+  nombre             String    @unique
+  ciudad             String?
+  creadoEn           DateTime  @default(now()) @map("created_at")
+  actualizadoEn      DateTime  @updatedAt @map("updated_at")
+  partidosLocales    Partido[] @relation("PartidoLocal")
+  partidosVisitantes Partido[] @relation("PartidoVisitante")
 
   // Relación con User
-  autorId        Int
-  autor          User     @relation(fields: [autorId], references: [id])
+  autorId            Int
+  autor              User      @relation(fields: [autorId], references: [id])
 
-  // --- NUEVA LÍNEA AÑADIDA ---
   // Relación con Pitcher: Un equipo puede tener muchos pitchers
-  pitchers       Pitcher[]
+  pitchers           Pitcher[]
 }
 
-// --- NUEVO MODELO AÑADIDO ---
 model Pitcher {
-  id              Int      @id @default(autoincrement())
-  nombre          String
-  apellido        String
-  edad            Int
-  numero_camiseta Int
-  creadoEn        DateTime @default(now()) @map("created_at")
-  actualizadoEn   DateTime @updatedAt @map("updated_at")
+  id                  Int           @id @default(autoincrement())
+  nombre              String
+  apellido            String
+  edad                Int
+  numero_camiseta     Int
+  creadoEn            DateTime      @default(now()) @map("created_at")
+  actualizadoEn       DateTime      @updatedAt @map("updated_at")
+
+  partidosComoLocal     Partido[]     @relation("PitcherLocal")
+  partidosComoVisitante Partido[]     @relation("PitcherVisitante")
+  lanzamientos          Lanzamiento[]
 
   // Relación con Equipo
-  equipoId        Int
-  equipo          Equipo   @relation(fields: [equipoId], references: [id])
+  equipoId            Int
+  equipo              Equipo        @relation(fields: [equipoId], references: [id])
 
   @@map("pitchers")
+}
+
+// --- NOTA: LOS ENUMS FUERON REMOVIDOS ---
+// SQL Server no los soporta nativamente. Usaremos Strings.
+
+// Modelo para guardar cada partido
+model Partido {
+  id        Int      @id @default(autoincrement())
+  fecha     DateTime
+  horario   String // Puedes usar String para "HH:mm"
+  campo     String?
+  estado    String   @default("PROGRAMADO") // CAMBIO: de Enum a String
+
+  // --- Relaciones con Equipo ---
+  equipoLocalId   Int
+  equipoLocal     Equipo   @relation("PartidoLocal", fields: [equipoLocalId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+
+  equipoVisitanteId Int
+  equipoVisitante   Equipo   @relation("PartidoVisitante", fields: [equipoVisitanteId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+
+  // --- Relaciones con Pitcher ---
+  pitcherLocalId    Int
+  pitcherLocal      Pitcher  @relation("PitcherLocal", fields: [pitcherLocalId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+
+  pitcherVisitanteId  Int
+  pitcherVisitante    Pitcher  @relation("PitcherVisitante", fields: [pitcherVisitanteId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+
+  // --- Relación con Lanzamiento ---
+  // Un partido puede tener muchos lanzamientos
+  lanzamientos Lanzamiento[]
+
+  creadoEn     DateTime @default(now()) @map("created_at")
+  actualizadoEn  DateTime @updatedAt @map("updated_at")
+
+  @@map("partidos")
+}
+
+// Modelo para guardar CADA lanzamiento
+model Lanzamiento {
+  id           Int      @id @default(autoincrement())
+  inning       Int
+  velocidadMph Int? // Opcional, por si no se registra
+  posicionGrid Int      // Un número del 1 al 25 para saber dónde cayó
+
+  // La cuenta ANTES de este lanzamiento
+  bolasAntes   Int
+  strikesAntes Int
+
+  // CAMBIO: de Enum a String
+  tipo         String
+  resultado    String
+
+  // --- Relación con Partido ---
+  partidoId    Int
+  partido      Partido  @relation(fields: [partidoId], references: [id], onUpdate: NoAction, onDelete: Cascade) // Si borras un partido, se borran sus lanzamientos
+
+  // --- Relación con Pitcher ---
+  // Para saber quién hizo este lanzamiento
+  pitcherId    Int
+  pitcher      Pitcher  @relation(fields: [pitcherId], references: [id], onUpdate: NoAction, onDelete: NoAction) // No dejes borrar un pitcher si tiene lanzamientos
+
+  creadoEn     DateTime @default(now()) @map("created_at")
+
+  @@map("lanzamientos")
 }
