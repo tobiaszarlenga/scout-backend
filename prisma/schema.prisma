@@ -16,20 +16,39 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // --- La relación completa ---
+  // Relación: Un usuario puede crear muchos equipos
   equipos   Equipo[]
 }
 
 model Equipo {
-  id            Int       @id @default(autoincrement())
-  nombre        String
-  ciudad        String?
-  creadoEn      DateTime  @default(now()) @map("created_at")
-  actualizadoEn DateTime  @updatedAt @map("updated_at")
+  id             Int      @id @default(autoincrement())
+  nombre         String   @unique
+  ciudad         String?
+  creadoEn       DateTime @default(now()) @map("created_at")
+  actualizadoEn  DateTime @updatedAt @map("updated_at")
 
-  // --- La relación completa ---
-  autorId Int
-  autor   User @relation(fields: [autorId], references: [id])
+  // Relación con User
+  autorId        Int
+  autor          User     @relation(fields: [autorId], references: [id])
 
-  @@unique([nombre])
+  // --- NUEVA LÍNEA AÑADIDA ---
+  // Relación con Pitcher: Un equipo puede tener muchos pitchers
+  pitchers       Pitcher[]
+}
+
+// --- NUEVO MODELO AÑADIDO ---
+model Pitcher {
+  id              Int      @id @default(autoincrement())
+  nombre          String
+  apellido        String
+  edad            Int
+  numero_camiseta Int
+  creadoEn        DateTime @default(now()) @map("created_at")
+  actualizadoEn   DateTime @updatedAt @map("updated_at")
+
+  // Relación con Equipo
+  equipoId        Int
+  equipo          Equipo   @relation(fields: [equipoId], references: [id])
+
+  @@map("pitchers")
 }
