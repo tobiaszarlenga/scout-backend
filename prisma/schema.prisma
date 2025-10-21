@@ -1,3 +1,5 @@
+// scout-backend/prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -16,27 +18,30 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relación: Un usuario puede crear muchos equipos
+  // Relaciones
   equipos   Equipo[]
+  partidos  Partido[] @relation("PartidosCreados") // <-- AÑADIDO
 }
 
 model Equipo {
-  id             Int      @id @default(autoincrement())
-  nombre         String   @unique
-  ciudad         String?
-  creadoEn       DateTime @default(now()) @map("created_at")
-  actualizadoEn  DateTime @updatedAt @map("updated_at")
+  id            Int      @id @default(autoincrement())
+  nombre        String   @unique
+  ciudad        String?
+  creadoEn      DateTime @default(now()) @map("created_at")
+  actualizadoEn DateTime @updatedAt @map("updated_at")
 
   // Relación con User
-  autorId        Int
-  autor          User     @relation(fields: [autorId], references: [id])
+  autorId Int
+  autor   User     @relation(fields: [autorId], references: [id])
 
-  // --- NUEVA LÍNEA AÑADIDA ---
-  // Relación con Pitcher: Un equipo puede tener muchos pitchers
-  pitchers       Pitcher[]
+  // Relación con Pitcher
+  pitchers Pitcher[]
+
+  // Relaciones con Partido (para local y visitante)
+  partidosLocal     Partido[] @relation("EquipoLocal") // <-- AÑADIDO
+  partidosVisitante Partido[] @relation("EquipoVisitante") // <-- AÑADIDO
 }
 
-// --- NUEVO MODELO AÑADIDO ---
 model Pitcher {
   id              Int      @id @default(autoincrement())
   nombre          String
@@ -47,8 +52,66 @@ model Pitcher {
   actualizadoEn   DateTime @updatedAt @map("updated_at")
 
   // Relación con Equipo
-  equipoId        Int
-  equipo          Equipo   @relation(fields: [equipoId], references: [id])
+  equipoId Int
+  equipo   Equipo   @relation(fields: [equipoId], references: [id])
+
+  // Relaciones con Partido (para local y visitante)
+  partidosLocal     Partido[] @relation("PitcherLocal") // <-- AÑADIDO
+  partidosVisitante Partido[] @relation("PitcherVisitante") // <-- AÑADIDO
 
   @@map("pitchers")
+}
+
+// --- ¡NUEVO MODELO AÑADIDO! ---
+model Partido {
+  id        Int      @id @default(autoincrement())
+  fecha     DateTime // El DateTime que combina fecha y hora
+  horario   String   // El string "HH:mm" que también guardamos
+  campo     String?
+  estado    String   // "PROGRAMADO", "FINALIZADO"
+  creadoEn  DateTime @default(now()) @map("created_at")
+  actualizadoEn DateTime @updatedAt @map("updated_at")
+
+  // Relación con User (Autor/Scout)
+  autorId   Int
+  autor     User     @relation("PartidosCreados", fields: [autorId], references: [id])
+
+  // Relación con Equipo Local
+  equipoLocalId Int
+  equipoLocal   Equipo @relation("EquipoLocal", fields: [equipoLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Relación con Equipo Visitante
+  equipoVisitanteId Int
+  equipoVisitante   Equipo @relation("EquipoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Relación con Pitcher Local
+  pitcherLocalId Int
+  pitcherLocal   Pitcher @relation("PitcherLocal", fields: [pitcherLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // Relación con Pitcher Visitante
+  pitcherVisitanteId Int
+  pitcherVisitante   Pitcher @relation("PitcherVisitante", fields: [pitcherVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  // Relación con Lanzamientos
+  lanzamientos Lanzamiento[]
+
+  @@map("partidos")
+}
+
+// --- ¡NUEVO MODELO AÑADIDO! ---
+model Lanzamiento {
+  id         Int      @id @default(autoincrement())
+  tipo       String   // "Recta", "Curva", etc.
+  velocidad  Float
+  resultado  String   // "Strike", "Bola", "Hit"
+  x          Int      // Coordenada X (0-4)
+  y          Int      // Coordenada Y (0-4)
+  comentario String?
+  creadoEn   DateTime @default(now()) @map("created_at")
+
+  // Relación con Partido
+  partidoId Int
+  partido   Partido  @relation(fields: [partidoId], references: [id])
+
+  @@map("lanzamientos")
 }

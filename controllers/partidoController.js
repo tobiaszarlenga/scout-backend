@@ -54,6 +54,7 @@ const crearPartido = async (req, res) => {
         fecha: fechaHora, // Guardamos el objeto Date combinado
         campo: campo?.trim() || null,
         estado: 'PROGRAMADO', // Estado por defecto
+        horario: horario,
         
         // Conexiones (IDs)
         autorId: autorId,
