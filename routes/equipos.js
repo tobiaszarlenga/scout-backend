@@ -3,16 +3,17 @@ const express = require('express');
 const prisma = require('../db/prisma'); // Asumo que tienes un archivo que exporta el cliente de Prisma
 const router = express.Router();
 
+// --- ¡CORRECTO! Importamos nuestro middleware ---
+const { verificarToken } = require('../middleware/auth');
+
 // --- GET /api/equipos (Obtener todos los equipos) ---
-// Esta ruta ahora incluye los datos del autor de cada equipo.
+// Esta ruta puede ser pública, la dejamos como está.
 router.get('/', async (_req, res) => {
   try {
     const equipos = await prisma.equipo.findMany({
       orderBy: { id: 'asc' },
-      // ¡NUEVO! Le pedimos a Prisma que "incluya" la información del autor relacionado.
       include: {
         autor: {
-          // Solo seleccionamos los campos que nos interesan del autor, nunca la contraseña.
           select: {
             id: true,
             name: true,
@@ -29,27 +30,30 @@ router.get('/', async (_req, res) => {
 });
 
 // --- POST /api/equipos (Crear un nuevo equipo) ---
-// Esta es la ruta que hemos modificado principalmente.
-router.post('/', async (req, res) => {
+// --- ¡CAMBIO 1: Aplicamos el middleware 'verificarToken'! ---
+router.post('/', verificarToken, async (req, res) => {
   try {
-    // ¡MODIFICADO! Ahora también esperamos recibir 'autorId' del frontend.
-    const { nombre, ciudad, autorId } = req.body;
+    // --- CAMBIO 2: Ya NO esperamos 'autorId' del body ---
+    const { nombre, ciudad } = req.body;
 
-    // --- Validaciones ---
+    // --- CAMBIO 3: Obtenemos el autorId de forma SEGURA desde el token ---
+    // (Usamos 'sub' porque así lo guardaste en el JWT: { sub: user.id })
+    const autorId = req.user.sub;
+
+    // --- Validaciones (solo para nombre) ---
     if (!nombre || nombre.trim().length < 2) {
       return res.status(400).json({ error: 'nombre es requerido (mín. 2 caracteres)' });
     }
-    // ¡NUEVO! Validamos que el autorId sea un número entero positivo.
-    if (!autorId || !Number.isInteger(autorId) || autorId <= 0) {
-      return res.status(400).json({ error: 'autorId es inválido' });
-    }
+
+    // --- CAMBIO 4: BORRAMOS la validación insegura de 'autorId' ---
+    // if (!autorId || ...etc...) { ... } <-- ESTO SE FUE
 
     // --- Creación en la Base de Datos ---
     const nuevoEquipo = await prisma.equipo.create({
       data: {
         nombre: nombre.trim(),
         ciudad: ciudad?.trim() || null,
-        // ¡MODIFICADO! Conectamos el equipo con el autor usando su ID.
+        // ¡Usamos el autorId seguro!
         autorId: autorId,
       },
     });
@@ -60,17 +64,15 @@ router.post('/', async (req, res) => {
     if (err.code === 'P2002') {
       return res.status(409).json({ error: 'El nombre ya existe' });
     }
-    // ¡NUEVO! Si el autorId que nos pasaron no existe en la tabla User.
-    if (err.code === 'P2003') {
-        return res.status(400).json({ error: 'El usuario autor no existe' });
-    }
+    // El error P2003 (usuario autor no existe) ya no es necesario,
+    // porque el ID siempre vendrá de un token válido.
     console.error(err);
     return res.status(500).json({ error: 'Error creando equipo' });
   }
 });
 
 // --- GET /api/equipos/:id (Obtener un equipo específico) ---
-// También le agregamos que incluya la info del autor.
+// Esta ruta también puede ser pública, la dejamos.
 router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -79,7 +81,6 @@ router.get('/:id', async (req, res) => {
   try {
     const equipo = await prisma.equipo.findUnique({
       where: { id },
-      // ¡NUEVO! Incluimos los datos del autor.
       include: {
         autor: {
           select: { id: true, name: true, email: true },
@@ -96,15 +97,27 @@ router.get('/:id', async (req, res) => {
 
 
 // --- PUT /api/equipos/:id (Actualizar un equipo) ---
-// Esta ruta no necesita grandes cambios, ya que no permitiremos cambiar el autor.
-router.put('/:id', async (req, res) => {
+// --- ¡MEJORA DE SEGURIDAD: Aplicamos el middleware 'verificarToken'! ---
+router.put('/:id', verificarToken, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { nombre, ciudad } = req.body;
+    const userId = req.user.sub; // ID del usuario logueado
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ error: 'id inválido' });
     }
+
+    // --- MEJORA: Verificamos que el usuario sea dueño del equipo ---
+    const equipo = await prisma.equipo.findUnique({ where: { id } });
+    if (!equipo) {
+      return res.status(404).json({ error: 'Equipo no encontrado' });
+    }
+    if (equipo.autorId !== userId) {
+      return res.status(403).json({ error: 'No autorizado para modificar este equipo' });
+    }
+    // --- FIN DE MEJORA ---
+
     // Validar que al menos uno de los campos a actualizar esté presente
     if (nombre === undefined && ciudad === undefined) {
       return res.status(400).json({ error: 'Se requiere al menos un campo (nombre o ciudad) para actualizar.' });
@@ -141,13 +154,26 @@ router.put('/:id', async (req, res) => {
 
 
 // --- DELETE /api/equipos/:id (Eliminar un equipo) ---
-// No requiere cambios. La lógica sigue siendo la misma.
-router.delete('/:id', async (req, res) => {
+// --- ¡MEJORA DE SEGURIDAD: Aplicamos el middleware 'verificarToken'! ---
+router.delete('/:id', verificarToken, async (req, res) => {
   const id = Number(req.params.id);
+  const userId = req.user.sub; // ID del usuario logueado
+
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'id inválido' });
   }
+
   try {
+    // --- MEJORA: Verificamos que el usuario sea dueño del equipo ---
+    const equipo = await prisma.equipo.findUnique({ where: { id } });
+    if (!equipo) {
+      return res.status(404).json({ error: 'Equipo no encontrado' });
+    }
+    if (equipo.autorId !== userId) {
+      return res.status(403).json({ error: 'No autorizado para eliminar este equipo' });
+    }
+    // --- FIN DE MEJORA ---
+
     await prisma.equipo.delete({ where: { id } });
     return res.status(204).send(); // 204 No Content
   } catch (err) {

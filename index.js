@@ -21,11 +21,13 @@ app.use(cookieParser());
 // --- RUTAS ---
 const authRoutes = require('./routes/auth');
 const equiposRoutes = require('./routes/equipos');
-const pitcherRoutes = require('./routes/pitchers'); // <-- LÍNEA 1 AÑADIDA
+const pitcherRoutes = require('./routes/pitchers'); 
+const partidosRoutes = require('./routes/partidos');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/equipos', equiposRoutes);
-app.use('/api/pitchers', pitcherRoutes); // <-- LÍNEA 2 AÑADIDA
+app.use('/api/pitchers', pitcherRoutes);
+app.use('/api/partidos', partidosRoutes);
 
 // --- Iniciar el servidor ---
 app.listen(PORT, () => {
