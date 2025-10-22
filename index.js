@@ -23,11 +23,13 @@ const authRoutes = require('./routes/auth');
 const equiposRoutes = require('./routes/equipos');
 const pitcherRoutes = require('./routes/pitchers'); 
 const partidosRoutes = require('./routes/partidos');
+const dashboardRoutes = require('./routes/dashboard.js');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/equipos', equiposRoutes);
 app.use('/api/pitchers', pitcherRoutes);
 app.use('/api/partidos', partidosRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // --- Iniciar el servidor ---
 app.listen(PORT, () => {

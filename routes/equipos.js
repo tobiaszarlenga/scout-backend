@@ -1,34 +1,37 @@
 // routes/equipos.js
 const express = require('express');
-const prisma = require('../db/prisma'); // Asumo que tienes un archivo que exporta el cliente de Prisma
+const prisma = require('../db/prisma');
 const router = express.Router();
 
-// --- ¡CORRECTO! Importamos nuestro middleware ---
 const { verificarToken } = require('../middleware/auth');
 
-// --- GET /api/equipos (Obtener todos los equipos) ---
-// Esta ruta puede ser pública, la dejamos como está.
-router.get('/', async (_req, res) => {
+// --- GET /api/equipos (Obtener SÓLO MIS equipos) ---
+// --- CAMBIO 1: Añadimos 'verificarToken' para proteger la ruta ---
+router.get('/', verificarToken, async (req, res) => {
   try {
+    // --- CAMBIO 2: Obtenemos el ID del usuario desde el token ---
+    const autorId = req.user.sub;
+
     const equipos = await prisma.equipo.findMany({
+      // --- CAMBIO 3: Añadimos el filtro 'where' para traer solo los del usuario ---
+      where: {
+        autorId: autorId
+      },
       orderBy: { id: 'asc' },
       include: {
-        autor: { // <-- Esto ya lo tenías
+        autor: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
-        // Le pedimos a Prisma que cuente la relación 'pitchers'
-        _count: {
-          select: { pitchers: true }
-        }
-        // --- FIN DEL CAMBIO ---
+        _count: {
+          select: { pitchers: true }
+        }
       },
     });
-    res.json(equipos); // Ahora cada equipo tendrá un objeto _count: { pitchers: 5 }
+    res.json(equipos);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error listando equipos' });
@@ -36,51 +39,41 @@ router.get('/', async (_req, res) => {
 });
 
 // --- POST /api/equipos (Crear un nuevo equipo) ---
-// --- ¡CAMBIO 1: Aplicamos el middleware 'verificarToken'! ---
+// (Esta ruta ya estaba perfecta)
 router.post('/', verificarToken, async (req, res) => {
   try {
-    // --- CAMBIO 2: Ya NO esperamos 'autorId' del body ---
     const { nombre, ciudad } = req.body;
-
-    // --- CAMBIO 3: Obtenemos el autorId de forma SEGURA desde el token ---
-    // (Usamos 'sub' porque así lo guardaste en el JWT: { sub: user.id })
     const autorId = req.user.sub;
 
-    // --- Validaciones (solo para nombre) ---
     if (!nombre || nombre.trim().length < 2) {
       return res.status(400).json({ error: 'nombre es requerido (mín. 2 caracteres)' });
     }
 
-    // --- CAMBIO 4: BORRAMOS la validación insegura de 'autorId' ---
-    // if (!autorId || ...etc...) { ... } <-- ESTO SE FUE
-
-    // --- Creación en la Base de Datos ---
     const nuevoEquipo = await prisma.equipo.create({
       data: {
         nombre: nombre.trim(),
         ciudad: ciudad?.trim() || null,
-        // ¡Usamos el autorId seguro!
         autorId: autorId,
       },
     });
 
     return res.status(201).json(nuevoEquipo);
   } catch (err) {
-    // Si el nombre ya existe (@@unique)
     if (err.code === 'P2002') {
       return res.status(409).json({ error: 'El nombre ya existe' });
     }
-    // El error P2003 (usuario autor no existe) ya no es necesario,
-    // porque el ID siempre vendrá de un token válido.
     console.error(err);
     return res.status(500).json({ error: 'Error creando equipo' });
   }
 });
 
 // --- GET /api/equipos/:id (Obtener un equipo específico) ---
-// Esta ruta también puede ser pública, la dejamos.
-router.get('/:id', async (req, res) => {
+// --- CAMBIO 4: Añadimos 'verificarToken' también aquí por seguridad ---
+router.get('/:id', verificarToken, async (req, res) => {
   const id = Number(req.params.id);
+  // --- CAMBIO 5: Obtenemos el ID del usuario ---
+  const userId = req.user.sub;
+
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'id inválido' });
   }
@@ -91,16 +84,19 @@ router.get('/:id', async (req, res) => {
         autor: {
           select: { id: true, name: true, email: true },
         },
-        // --- MEJORA OPCIONAL ---
-        // También puedes agregar el conteo aquí si lo necesitas
-        // en la página de detalle de un solo equipo.
-        _count: {
-          select: { pitchers: true }
-        }
-        // --- FIN MEJORA OPCIONAL ---
+        _count: {
+          select: { pitchers: true }
+        }
       },
     });
+
     if (!equipo) return res.status(404).json({ error: 'Equipo no encontrado' });
+
+    // --- CAMBIO 6: Verificamos que el usuario sea dueño del equipo ---
+    if (equipo.autorId !== userId) {
+      return res.status(403).json({ error: 'No autorizado para ver este equipo' });
+    }
+
     res.json(equipo);
   } catch (err) {
     console.error(err);
@@ -110,18 +106,17 @@ router.get('/:id', async (req, res) => {
 
 
 // --- PUT /api/equipos/:id (Actualizar un equipo) ---
-// --- ¡MEJORA DE SEGURIDAD: Aplicamos el middleware 'verificarToken'! ---
+// (Esta ruta ya estaba perfecta)
 router.put('/:id', verificarToken, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { nombre, ciudad } = req.body;
-    const userId = req.user.sub; // ID del usuario logueado
+    const userId = req.user.sub;
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ error: 'id inválido' });
     }
 
-    // --- MEJORA: Verificamos que el usuario sea dueño del equipo ---
     const equipo = await prisma.equipo.findUnique({ where: { id } });
     if (!equipo) {
       return res.status(404).json({ error: 'Equipo no encontrado' });
@@ -129,9 +124,7 @@ router.put('/:id', verificarToken, async (req, res) => {
     if (equipo.autorId !== userId) {
       return res.status(403).json({ error: 'No autorizado para modificar este equipo' });
     }
-    // --- FIN DE MEJORA ---
 
-    // Validar que al menos uno de los campos a actualizar esté presente
     if (nombre === undefined && ciudad === undefined) {
       return res.status(400).json({ error: 'Se requiere al menos un campo (nombre o ciudad) para actualizar.' });
     }
@@ -145,7 +138,7 @@ router.put('/:id', verificarToken, async (req, res) => {
     }
     if (ciudad !== undefined) {
       dataToUpdate.ciudad = ciudad?.trim() || null;
-  S }
+    } // <--- Corregí un error de sintaxis que tenías aquí (una 'S' suelta)
 
     const actualizado = await prisma.equipo.update({
       where: { id },
@@ -154,10 +147,10 @@ router.put('/:id', verificarToken, async (req, res) => {
 
     return res.json(actualizado);
   } catch (err) {
-    if (err.code === 'P2002') { // unique constraint
+    if (err.code === 'P2002') {
       return res.status(409).json({ error: 'El nombre ya existe' });
     }
-    if (err.code === 'P2025') { // record not found
+    if (err.code === 'P2025') {
       return res.status(404).json({ error: 'Equipo no encontrado' });
     }
     console.error(err);
@@ -167,17 +160,17 @@ router.put('/:id', verificarToken, async (req, res) => {
 
 
 // --- DELETE /api/equipos/:id (Eliminar un equipo) ---
-// --- ¡MEJORA DE SEGURIDAD: Aplicamos el middleware 'verificarToken'! ---
+// (Esta ruta ya estaba perfecta)
 router.delete('/:id', verificarToken, async (req, res) => {
+// ... (sin cambios)
   const id = Number(req.params.id);
-  const userId = req.user.sub; // ID del usuario logueado
+  const userId = req.user.sub;
 
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'id inválido' });
-}
+  }
 
   try {
-    // --- MEJORA: Verificamos que el usuario sea dueño del equipo ---
     const equipo = await prisma.equipo.findUnique({ where: { id } });
     if (!equipo) {
       return res.status(404).json({ error: 'Equipo no encontrado' });
@@ -185,19 +178,16 @@ router.delete('/:id', verificarToken, async (req, res) => {
     if (equipo.autorId !== userId) {
       return res.status(403).json({ error: 'No autorizado para eliminar este equipo' });
     }
-    // --- FIN DE MEJORA ---
 
     await prisma.equipo.delete({ where: { id } });
-    return res.status(204).send(); // 204 No Content
+    return res.status(204).send();
   } catch (err) {
     if (err.code === 'P2025') {
       return res.status(404).json({ error: 'Equipo no encontrado' });
     }
-    // --- IMPORTANTE: Manejar error P2014 ---
-    // Esto pasa si intentas borrar un Equipo que todavía tiene Pitchers
-    if (err.code === 'P2014' || err.code === 'P2003') { // P2003 en SQL Server
-      return res.status(409).json({ error: 'No se puede eliminar el equipo porque tiene pitchers asociados.' });
-    }
+    if (err.code === 'P2014' || err.code === 'P2003') {
+      return res.status(409).json({ error: 'No se puede eliminar el equipo porque tiene pitchers asociados.' });
+    }
     console.error(err);
     return res.status(500).json({ error: 'Error eliminando equipo' });
   }
