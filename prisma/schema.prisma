@@ -9,109 +9,117 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ... (User, Equipo, Pitcher, Partido no cambian) ...
+// (Pego los modelos de User, Equipo, Pitcher y Partido por completitud,
+// pero no tienen cambios respecto al código anterior)
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
   password  String
   name      String
-  rol       String   @default("USER")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
+  rol       String    @default("USER")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   equipos   Equipo[]
-  partidos  Partido[] @relation("PartidosCreados") // <-- AÑADIDO
+  partidos  Partido[] @relation("PartidosCreados")
 }
 
 model Equipo {
-  id            Int      @id @default(autoincrement())
-  nombre        String   @unique
-  ciudad        String?
-  creadoEn      DateTime @default(now()) @map("created_at")
-  actualizadoEn DateTime @updatedAt @map("updated_at")
-
-  // Relación con User
-  autorId Int
-  autor   User     @relation(fields: [autorId], references: [id])
-
-  // Relación con Pitcher
-  pitchers Pitcher[]
-
-  // Relaciones con Partido (para local y visitante)
-  partidosLocal     Partido[] @relation("EquipoLocal") // <-- AÑADIDO
-  partidosVisitante Partido[] @relation("EquipoVisitante") // <-- AÑADIDO
+  id                Int       @id @default(autoincrement())
+  nombre            String    @unique
+  ciudad            String?
+  creadoEn          DateTime  @default(now()) @map("created_at")
+  actualizadoEn     DateTime  @updatedAt @map("updated_at")
+  autorId           Int
+  autor             User      @relation(fields: [autorId], references: [id])
+  pitchers          Pitcher[]
+  partidosLocal     Partido[] @relation("EquipoLocal")
+  partidosVisitante Partido[] @relation("EquipoVisitante")
 }
 
 model Pitcher {
-  id              Int      @id @default(autoincrement())
-  nombre          String
-  apellido        String
-  edad            Int
-  numero_camiseta Int
-  creadoEn        DateTime @default(now()) @map("created_at")
-  actualizadoEn   DateTime @updatedAt @map("updated_at")
-
-  // Relación con Equipo
-  equipoId Int
-  equipo   Equipo   @relation(fields: [equipoId], references: [id])
-
-  // Relaciones con Partido (para local y visitante)
-  partidosLocal     Partido[] @relation("PitcherLocal") // <-- AÑADIDO
-  partidosVisitante Partido[] @relation("PitcherVisitante") // <-- AÑADIDO
+  id                Int       @id @default(autoincrement())
+  nombre            String
+  apellido          String
+  edad              Int
+  numero_camiseta   Int
+  creadoEn          DateTime  @default(now()) @map("created_at")
+  actualizadoEn     DateTime  @updatedAt @map("updated_at")
+  equipoId          Int
+  equipo            Equipo    @relation(fields: [equipoId], references: [id])
+  partidosLocal     Partido[] @relation("PitcherLocal")
+  partidosVisitante Partido[] @relation("PitcherVisitante")
 
   @@map("pitchers")
 }
 
-// --- ¡NUEVO MODELO AÑADIDO! ---
 model Partido {
-  id        Int      @id @default(autoincrement())
-  fecha     DateTime // El DateTime que combina fecha y hora
-  horario   String   // El string "HH:mm" que también guardamos
-  campo     String?
-  estado    String   // "PROGRAMADO", "FINALIZADO"
-  creadoEn  DateTime @default(now()) @map("created_at")
-  actualizadoEn DateTime @updatedAt @map("updated_at")
-
-  // Relación con User (Autor/Scout)
-  autorId   Int
-  autor     User     @relation("PartidosCreados", fields: [autorId], references: [id])
-
-  // Relación con Equipo Local
-  equipoLocalId Int
-  equipoLocal   Equipo @relation("EquipoLocal", fields: [equipoLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  // Relación con Equipo Visitante
-  equipoVisitanteId Int
-  equipoVisitante   Equipo @relation("EquipoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  // Relación con Pitcher Local
-  pitcherLocalId Int
-  pitcherLocal   Pitcher @relation("PitcherLocal", fields: [pitcherLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  // Relación con Pitcher Visitante
+  id                 Int      @id @default(autoincrement())
+  fecha              DateTime
+  horario            String
+  campo              String?
+  estado             String
+  creadoEn           DateTime @default(now()) @map("created_at")
+  actualizadoEn      DateTime @updatedAt @map("updated_at")
+  autorId            Int
+  autor              User     @relation("PartidosCreados", fields: [autorId], references: [id])
+  equipoLocalId      Int
+  equipoLocal        Equipo   @relation("EquipoLocal", fields: [equipoLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipoVisitanteId  Int
+  equipoVisitante    Equipo   @relation("EquipoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pitcherLocalId     Int
+  pitcherLocal       Pitcher  @relation("PitcherLocal", fields: [pitcherLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pitcherVisitanteId Int
-  pitcherVisitante   Pitcher @relation("PitcherVisitante", fields: [pitcherVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
-  // Relación con Lanzamientos
-  lanzamientos Lanzamiento[]
+  pitcherVisitante   Pitcher  @relation("PitcherVisitante", fields: [pitcherVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lanzamientos       Lanzamiento[]
 
   @@map("partidos")
 }
 
-// --- ¡NUEVO MODELO AÑADIDO! ---
+// (Este modelo está perfecto, no cambia)
+model TipoLanzamiento {
+  id     Int    @id @default(autoincrement())
+  nombre String @unique
+
+  lanzamientos Lanzamiento[]
+
+  @@map("tipos_lanzamiento")
+}
+
+// --- CAMBIO 1: EL 'enum' SE VA Y LLEGA UN 'model' ---
+// ¡Borramos el 'enum ResultadoLanzamiento' que daba error!
+// Y lo reemplazamos por este modelo:
+model ResultadoLanzamiento {
+  id     Int    @id @default(autoincrement())
+  nombre String @unique // Aquí irán "STRIKE", "BOLA", "HIT", etc.
+
+  lanzamientos Lanzamiento[]
+  
+  @@map("resultados_lanzamiento")
+}
+
+
 model Lanzamiento {
   id         Int      @id @default(autoincrement())
-  tipo       String   // "Recta", "Curva", etc.
-  velocidad  Float
-  resultado  String   // "Strike", "Bola", "Hit"
-  x          Int      // Coordenada X (0-4)
-  y          Int      // Coordenada Y (0-4)
+  velocidad  Float?   // (Correcto: Opcional)
+  x          Int
+  y          Int
   comentario String?
   creadoEn   DateTime @default(now()) @map("created_at")
 
-  // Relación con Partido
+  // Relación con Partido (no cambia)
   partidoId Int
   partido   Partido  @relation(fields: [partidoId], references: [id])
+  
+  // Relación con TipoLanzamiento (no cambia)
+  tipoId Int
+  tipo   TipoLanzamiento @relation(fields: [tipoId], references: [id])
+
+  // --- CAMBIO 2: 'resultado' AHORA USA EL NUEVO MODELO ---
+  // En lugar de usar el enum, lo relacionamos con la nueva tabla.
+  resultadoId Int
+  resultado   ResultadoLanzamiento @relation(fields: [resultadoId], references: [id])
 
   @@map("lanzamientos")
 }
