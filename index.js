@@ -8,9 +8,9 @@ const PORT = process.env.PORT || 3001;
 
 // --- ¡CONFIGURACIÓN DE CORS DEFINITIVA! ---
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://localhost:3002'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: ['http://localhost:3000', 'http://localhost:3002'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
 };
 
 // --- Middlewares ---
@@ -24,14 +24,19 @@ const equiposRoutes = require('./routes/equipos');
 const pitcherRoutes = require('./routes/pitchers'); 
 const partidosRoutes = require('./routes/partidos');
 const dashboardRoutes = require('./routes/dashboard.js');
+// --- ¡CAMBIO 1: Importamos las nuevas rutas! ---
+const lookupRoutes = require('./routes/lookup.routes.js');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/equipos', equiposRoutes);
 app.use('/api/pitchers', pitcherRoutes);
 app.use('/api/partidos', partidosRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+// --- ¡CAMBIO 2: Usamos las nuevas rutas! ---
+// (Cualquier petición a /api/lookup/... será manejada por este archivo)
+app.use('/api/lookup', lookupRoutes);
 
 // --- Iniciar el servidor ---
 app.listen(PORT, () => {
-  console.log(`API escuchando en http://localhost:${PORT}`);
+  console.log(`API escuchando en http://localhost:${PORT}`);
 });
