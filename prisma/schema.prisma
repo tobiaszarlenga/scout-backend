@@ -39,39 +39,40 @@ model Equipo {
 }
 
 model Pitcher {
-  id                Int       @id @default(autoincrement())
+  id                Int           @id @default(autoincrement())
   nombre            String
   apellido          String
   edad              Int
   numero_camiseta   Int
-  creadoEn          DateTime  @default(now()) @map("created_at")
-  actualizadoEn     DateTime  @updatedAt @map("updated_at")
+  creadoEn          DateTime      @default(now()) @map("created_at")
+  actualizadoEn     DateTime      @updatedAt @map("updated_at")
   equipoId          Int
-  equipo            Equipo    @relation(fields: [equipoId], references: [id])
-  partidosLocal     Partido[] @relation("PitcherLocal")
-  partidosVisitante Partido[] @relation("PitcherVisitante")
+  equipo            Equipo        @relation(fields: [equipoId], references: [id])
+  partidosLocal     Partido[]     @relation("PitcherLocal")
+  partidosVisitante Partido[]     @relation("PitcherVisitante")
+  lanzamientos      Lanzamiento[]
 
   @@map("pitchers")
 }
 
 model Partido {
-  id                 Int      @id @default(autoincrement())
+  id                 Int           @id @default(autoincrement())
   fecha              DateTime
   horario            String
   campo              String?
   estado             String
-  creadoEn           DateTime @default(now()) @map("created_at")
-  actualizadoEn      DateTime @updatedAt @map("updated_at")
+  creadoEn           DateTime      @default(now()) @map("created_at")
+  actualizadoEn      DateTime      @updatedAt @map("updated_at")
   autorId            Int
-  autor              User     @relation("PartidosCreados", fields: [autorId], references: [id])
+  autor              User          @relation("PartidosCreados", fields: [autorId], references: [id])
   equipoLocalId      Int
-  equipoLocal        Equipo   @relation("EquipoLocal", fields: [equipoLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipoLocal        Equipo        @relation("EquipoLocal", fields: [equipoLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   equipoVisitanteId  Int
-  equipoVisitante    Equipo   @relation("EquipoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  equipoVisitante    Equipo        @relation("EquipoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pitcherLocalId     Int
-  pitcherLocal       Pitcher  @relation("PitcherLocal", fields: [pitcherLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pitcherLocal       Pitcher       @relation("PitcherLocal", fields: [pitcherLocalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   pitcherVisitanteId Int
-  pitcherVisitante   Pitcher  @relation("PitcherVisitante", fields: [pitcherVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pitcherVisitante   Pitcher       @relation("PitcherVisitante", fields: [pitcherVisitanteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   lanzamientos       Lanzamiento[]
 
   @@map("partidos")
@@ -95,23 +96,30 @@ model ResultadoLanzamiento {
   nombre String @unique // Aquí irán "STRIKE", "BOLA", "HIT", etc.
 
   lanzamientos Lanzamiento[]
-  
+
   @@map("resultados_lanzamiento")
 }
 
-
 model Lanzamiento {
   id         Int      @id @default(autoincrement())
-  velocidad  Float?   // (Correcto: Opcional)
+  velocidad  Float? // (Correcto: Opcional)
   x          Int
   y          Int
   comentario String?
   creadoEn   DateTime @default(now()) @map("created_at")
 
+  // Nuevo: inning y lado del inning
+  inning     Int
+  ladoInning String // 'abre' | 'cierra'
+
+  // Nuevo: referencia al pitcher que lanzó
+  pitcherId Int
+  pitcher   Pitcher @relation(fields: [pitcherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   // Relación con Partido (no cambia)
   partidoId Int
-  partido   Partido  @relation(fields: [partidoId], references: [id])
-  
+  partido   Partido @relation(fields: [partidoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   // Relación con TipoLanzamiento (no cambia)
   tipoId Int
   tipo   TipoLanzamiento @relation(fields: [tipoId], references: [id])

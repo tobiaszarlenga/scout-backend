@@ -23,6 +23,7 @@ const authRoutes = require('./routes/auth');
 const equiposRoutes = require('./routes/equipos');
 const pitcherRoutes = require('./routes/pitchers'); 
 const partidosRoutes = require('./routes/partidos');
+const lanzamientosRoutes = require('./routes/lanzamientos');
 const dashboardRoutes = require('./routes/dashboard.js');
 // --- ¡CAMBIO 1: Importamos las nuevas rutas! ---
 const lookupRoutes = require('./routes/lookup.routes.js');
@@ -31,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/equipos', equiposRoutes);
 app.use('/api/pitchers', pitcherRoutes);
 app.use('/api/partidos', partidosRoutes);
+app.use('/api', lanzamientosRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 // --- ¡CAMBIO 2: Usamos las nuevas rutas! ---
 // (Cualquier petición a /api/lookup/... será manejada por este archivo)
