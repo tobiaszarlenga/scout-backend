@@ -200,3 +200,38 @@ module.exports = {
   listarPartidos,
   obtenerPartido,
 };
+
+/**
+ * @route   PATCH /api/partidos/:id/finalizar
+ * @desc    Marcar un partido como FINALIZADO
+ * @access  Private
+ */
+const finalizarPartido = async (req, res) => {
+  try {
+    const partidoId = Number(req.params.id);
+    const autorId = req.user.sub;
+
+    if (isNaN(partidoId)) {
+      return res.status(400).json({ error: 'ID de partido inválido' });
+    }
+
+    // Comprobamos que el partido exista y pertenezca al usuario
+    const partido = await prisma.partido.findFirst({ where: { id: partidoId, autorId } });
+    if (!partido) {
+      return res.status(404).json({ error: 'Partido no encontrado' });
+    }
+
+    const actualizado = await prisma.partido.update({
+      where: { id: partidoId },
+      data: { estado: 'FINALIZADO' },
+    });
+
+    return res.json(actualizado);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Error al finalizar el partido' });
+  }
+};
+
+// Añadimos la exportación
+module.exports.finalizarPartido = finalizarPartido;
