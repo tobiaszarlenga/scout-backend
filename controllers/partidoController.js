@@ -113,7 +113,90 @@ const listarPartidos = async (req, res) => {
 };
 
 
+/**
+ * @route   GET /api/partidos/:id
+ * @desc    Obtener un partido específico con todos los detalles
+ * @access  Private
+ */
+const obtenerPartido = async (req, res) => {
+  try {
+    const partidoId = Number(req.params.id);
+    const autorId = req.user.sub;
+
+    // Validamos que el ID sea un número válido
+    if (isNaN(partidoId)) {
+      return res.status(400).json({ error: 'ID de partido inválido' });
+    }
+
+    const partido = await prisma.partido.findFirst({
+      where: {
+        id: partidoId,
+        autorId: autorId, // Solo el creador puede ver el partido
+      },
+      include: {
+        equipoLocal: {
+          select: {
+            id: true,
+            nombre: true,
+            pitchers: { // Incluimos TODOS los pitchers del equipo
+              select: {
+                id: true,
+                nombre: true,
+                apellido: true,
+                numero_camiseta: true,
+              },
+            },
+          },
+        },
+        equipoVisitante: {
+          select: {
+            id: true,
+            nombre: true,
+            pitchers: { // Incluimos TODOS los pitchers del equipo
+              select: {
+                id: true,
+                nombre: true,
+                apellido: true,
+                numero_camiseta: true,
+              },
+            },
+          },
+        },
+        pitcherLocal: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            numero_camiseta: true,
+          },
+        },
+        pitcherVisitante: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            numero_camiseta: true,
+          },
+        },
+      },
+    });
+
+    // Si no existe o no pertenece al usuario
+    if (!partido) {
+      return res.status(404).json({ error: 'Partido no encontrado' });
+    }
+
+    return res.json(partido);
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Error al obtener el partido' });
+  }
+};
+
+
 module.exports = {
   crearPartido,
   listarPartidos,
+  obtenerPartido,
 };
