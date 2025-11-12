@@ -127,6 +127,62 @@ async function updatePitcher(req, res) {
   }
 }
 
+// GET /api/pitchers/:id/stats  (estadísticas agregadas del pitcher)
+async function getPitcherStats(req, res) {
+  const id = num(req.params.id);
+  const userId = getUserId(req);
+  if (!isValidId(id)) return res.status(400).json({ error: 'id inválido' });
+
+  try {
+    // verificar que el pitcher pertenece al usuario
+    const pitcher = await prisma.pitcher.findFirst({ where: { id, equipo: { autorId: userId } }, select: { id: true } });
+    if (!pitcher) return res.status(404).json({ error: 'Pitcher no encontrado o no autorizado' });
+
+    // total lanzamientos
+    const total = await prisma.lanzamiento.count({ where: { pitcherId: id } });
+
+    // promedio de velocidad
+    const avgRes = await prisma.lanzamiento.aggregate({ _avg: { velocidad: true }, where: { pitcherId: id } });
+    const avgVel = avgRes._avg && typeof avgRes._avg.velocidad === 'number' ? avgRes._avg.velocidad : null;
+
+    // conteo por zona (agrupando por x,y)
+    const byZone = await prisma.lanzamiento.groupBy({
+      by: ['x', 'y'],
+      where: { pitcherId: id },
+      _count: { _all: true },
+    });
+    const zoneCounts = new Array(25).fill(0);
+    byZone.forEach((row) => {
+      const x = Number(row.x);
+      const y = Number(row.y);
+      if (Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < 5 && y >= 0 && y < 5) {
+        const idx = y * 5 + x;
+        zoneCounts[idx] = row._count._all || 0;
+      }
+    });
+
+    // conteo por resultadoId
+    const byResId = await prisma.lanzamiento.groupBy({
+      by: ['resultadoId'],
+      where: { pitcherId: id },
+      _count: { _all: true },
+    });
+    const resultadoIds = byResId.map((r) => r.resultadoId).filter((v) => v != null);
+    const resultados = await prisma.resultadoLanzamiento.findMany({ where: { id: { in: resultadoIds } } });
+    const resultadosMap = resultados.reduce((acc, r) => ({ ...acc, [r.id]: r.nombre }), {});
+    const byResultado = {};
+    byResId.forEach((r) => {
+      const key = resultadosMap[r.resultadoId] || String(r.resultadoId);
+      byResultado[key] = r._count._all || 0;
+    });
+
+    res.json({ total, avgVel, zoneCounts, byResultado });
+  } catch (error) {
+    console.error('getPitcherStats', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas del pitcher.' });
+  }
+}
+
 // DELETE /api/pitchers/:id  (eliminar, validando propiedad)
 async function deletePitcher(req, res) {
   const id = num(req.params.id);
@@ -160,4 +216,6 @@ module.exports = {
   createPitcher,
   updatePitcher,
   deletePitcher,
+  // nuevo: estadísticas agregadas por pitcher
+  getPitcherStats,
 };
