@@ -176,7 +176,22 @@ async function getPitcherStats(req, res) {
       byResultado[key] = r._count._all || 0;
     });
 
-    res.json({ total, avgVel, zoneCounts, byResultado });
+    // conteo por tipoId (tipo de lanzamiento / efecto)
+    const byTipoId = await prisma.lanzamiento.groupBy({
+      by: ['tipoId'],
+      where: { pitcherId: id },
+      _count: { _all: true },
+    });
+    const tipoIds = byTipoId.map((t) => t.tipoId).filter((v) => v != null);
+    const tipos = await prisma.tipoLanzamiento.findMany({ where: { id: { in: tipoIds } } });
+    const tiposMap = tipos.reduce((acc, t) => ({ ...acc, [t.id]: t.nombre }), {});
+    const byTipo = {};
+    byTipoId.forEach((t) => {
+      const key = tiposMap[t.tipoId] || String(t.tipoId);
+      byTipo[key] = t._count._all || 0;
+    });
+
+    res.json({ total, avgVel, zoneCounts, byResultado, byTipo });
   } catch (error) {
     console.error('getPitcherStats', error);
     res.status(500).json({ error: 'Error al obtener estadísticas del pitcher.' });

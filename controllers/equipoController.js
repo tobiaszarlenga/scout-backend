@@ -217,6 +217,21 @@ async function getEquipoStats(req, res) {
       byResultado[key] = r._count._all || 0;
     });
 
+    // Conteo por tipoId para el equipo
+    const byTipoId = await prisma.lanzamiento.groupBy({
+      by: ['tipoId'],
+      where: { pitcher: { equipoId: id } },
+      _count: { _all: true },
+    });
+    const tipoIds = byTipoId.map((t) => t.tipoId).filter((v) => v != null);
+    const tipos = await prisma.tipoLanzamiento.findMany({ where: { id: { in: tipoIds } } });
+    const tiposMap = tipos.reduce((acc, t) => ({ ...acc, [t.id]: t.nombre }), {});
+    const byTipo = {};
+    byTipoId.forEach((t) => {
+      const key = tiposMap[t.tipoId] || String(t.tipoId);
+      byTipo[key] = t._count._all || 0;
+    });
+
     // Resumen por pitcher del equipo (total y avgVel)
     const perPitcher = await prisma.lanzamiento.groupBy({
       by: ['pitcherId'],
@@ -235,7 +250,7 @@ async function getEquipoStats(req, res) {
       avgVel: p._avg?.velocidad ?? null,
     }));
 
-    res.json({ total, avgVel, zoneCounts, byResultado, pitchers: pitchersSummary });
+    res.json({ total, avgVel, zoneCounts, byResultado, byTipo, pitchers: pitchersSummary });
   } catch (err) {
     console.error('getEquipoStats', err);
     res.status(500).json({ error: 'Error obteniendo estadísticas del equipo' });
