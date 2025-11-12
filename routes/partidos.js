@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { verificarToken } = require('../middleware/auth');
-const { crearPartido, listarPartidos, obtenerPartido } = require('../controllers/partidoController');
+const { crearPartido, listarPartidos, obtenerPartido, finalizarPartido } = require('../controllers/partidoController');
 
 // --- POST /api/partidos (Crear un nuevo partido) ---
 // 1. Verificamos el token
@@ -19,6 +19,9 @@ router.get('/', verificarToken, listarPartidos);
 // 1. Verificamos el token
 // 2. Si es válido, llamamos a la función obtenerPartido
 router.get('/:id', verificarToken, obtenerPartido);
+
+// PUT /api/partidos/:id/finalizar -> marcar como FINALIZADO
+router.put('/:id/finalizar', verificarToken, finalizarPartido);
 
 // Aquí añadiremos más rutas después (PUT /:id, etc.)
 

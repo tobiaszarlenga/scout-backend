@@ -168,10 +168,102 @@ async function deleteEquipo(req, res) {
   }
 }
 
+// GET /api/equipos/:id/stats  (estadísticas agregadas del equipo)
+async function getEquipoStats(req, res) {
+  const id = Number(req.params.id);
+  const userId = getUserId(req);
+  if (!isValidId(id)) return res.status(400).json({ error: 'id inválido' });
+
+  try {
+    const equipo = await prisma.equipo.findUnique({ where: { id } });
+    if (!equipo) return res.status(404).json({ error: 'Equipo no encontrado' });
+    if (equipo.autorId !== userId) return res.status(403).json({ error: 'No autorizado' });
+
+    // Total lanzamientos para pitchers del equipo
+    const total = await prisma.lanzamiento.count({ where: { pitcher: { equipoId: id } } });
+
+    // Promedio de velocidad para el equipo
+    const avgRes = await prisma.lanzamiento.aggregate({ _avg: { velocidad: true }, where: { pitcher: { equipoId: id } } });
+    const avgVel = avgRes._avg && typeof avgRes._avg.velocidad === 'number' ? avgRes._avg.velocidad : null;
+
+    // Conteo por zona (x,y) para el equipo
+    const byZone = await prisma.lanzamiento.groupBy({
+      by: ['x', 'y'],
+      where: { pitcher: { equipoId: id } },
+      _count: { _all: true },
+    });
+    const zoneCounts = new Array(25).fill(0);
+    byZone.forEach((row) => {
+      const x = Number(row.x);
+      const y = Number(row.y);
+      if (Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < 5 && y >= 0 && y < 5) {
+        const idx = y * 5 + x;
+        zoneCounts[idx] = row._count._all || 0;
+      }
+    });
+
+    // Conteo por resultadoId para el equipo
+    const byResId = await prisma.lanzamiento.groupBy({
+      by: ['resultadoId'],
+      where: { pitcher: { equipoId: id } },
+      _count: { _all: true },
+    });
+    const resultadoIds = byResId.map((r) => r.resultadoId).filter((v) => v != null);
+    const resultados = await prisma.resultadoLanzamiento.findMany({ where: { id: { in: resultadoIds } } });
+    const resultadosMap = resultados.reduce((acc, r) => ({ ...acc, [r.id]: r.nombre }), {});
+    const byResultado = {};
+    byResId.forEach((r) => {
+      const key = resultadosMap[r.resultadoId] || String(r.resultadoId);
+      byResultado[key] = r._count._all || 0;
+    });
+
+    // Conteo por tipoId para el equipo
+    const byTipoId = await prisma.lanzamiento.groupBy({
+      by: ['tipoId'],
+      where: { pitcher: { equipoId: id } },
+      _count: { _all: true },
+    });
+    const tipoIds = byTipoId.map((t) => t.tipoId).filter((v) => v != null);
+    const tipos = await prisma.tipoLanzamiento.findMany({ where: { id: { in: tipoIds } } });
+    const tiposMap = tipos.reduce((acc, t) => ({ ...acc, [t.id]: t.nombre }), {});
+    const byTipo = {};
+    byTipoId.forEach((t) => {
+      const key = tiposMap[t.tipoId] || String(t.tipoId);
+      byTipo[key] = t._count._all || 0;
+    });
+
+    // Resumen por pitcher del equipo (total y avgVel)
+    const perPitcher = await prisma.lanzamiento.groupBy({
+      by: ['pitcherId'],
+      where: { pitcher: { equipoId: id } },
+      _count: { _all: true },
+      _avg: { velocidad: true },
+    });
+    const pitcherIds = perPitcher.map((p) => p.pitcherId).filter((v) => v != null);
+    const pitchers = await prisma.pitcher.findMany({ where: { id: { in: pitcherIds } }, select: { id: true, nombre: true, apellido: true } });
+    const pitcherMap = pitchers.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+    const pitchersSummary = perPitcher.map((p) => ({
+      id: p.pitcherId,
+      nombre: pitcherMap[p.pitcherId]?.nombre || null,
+      apellido: pitcherMap[p.pitcherId]?.apellido || null,
+      total: p._count._all || 0,
+      avgVel: p._avg?.velocidad ?? null,
+    }));
+
+    res.json({ total, avgVel, zoneCounts, byResultado, byTipo, pitchers: pitchersSummary });
+  } catch (err) {
+    console.error('getEquipoStats', err);
+    res.status(500).json({ error: 'Error obteniendo estadísticas del equipo' });
+  }
+}
+
+
 module.exports = {
   listEquipos,
   getEquipo,
   createEquipo,
   updateEquipo,
   deleteEquipo,
+  // nuevo: estadísticas por equipo
+  getEquipoStats,
 };
