@@ -122,3 +122,62 @@ router.post('/logout', (_req, res) => {
 });
 
 module.exports = router;
+ 
+// ====== RECOVERY FLOW (console-link version) ======
+// POST /api/auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const email = normalize(req.body.email).toLowerCase();
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Respond success even if not found (avoid user enumeration)
+    if (!user) {
+      return res.status(200).json({ message: 'Si el email existe, se generó un link de recuperación.' });
+    }
+
+    const token = jwt.sign(
+      { type: 'reset', sub: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetLink = `${baseUrl}/reset-password/${token}`;
+    console.log('🔑 Link de recuperación:', resetLink);
+
+    return res.status(200).json({ message: 'Se generó el link de recuperación (ver consola del servidor).' });
+  } catch (error) {
+    console.error('Error en forgot-password:', error);
+    return res.status(500).json({ error: 'Error al generar recuperación' });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token y nueva contraseña requeridos' });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (_e) {
+      return res.status(400).json({ error: 'Token inválido o expirado' });
+    }
+
+    if (payload.type !== 'reset' || !payload.sub) {
+      return res.status(400).json({ error: 'Token de recuperación inválido' });
+    }
+
+    const hashedPassword = await argon2.hash(String(newPassword));
+    await prisma.user.update({ where: { id: payload.sub }, data: { password: hashedPassword } });
+
+    return res.status(200).json({ message: 'Contraseña actualizada exitosamente' });
+  } catch (error) {
+    console.error('Error en reset-password:', error);
+    return res.status(500).json({ error: 'Error al actualizar contraseña' });
+  }
+});
